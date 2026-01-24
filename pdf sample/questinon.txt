@@ -1,0 +1,21 @@
+Suggested Sample Questions to Test:
+What is Artificial Intelligence and what are its core areas?
+
+Explain the three main types of Machine Learning.
+
+How is Deep Learning different from regular Machine Learning?
+
+List real-world applications of AI across different industries.
+
+What are the key ethical concerns with AI?
+
+How is AI used in healthcare or marketing?
+
+What are some predicted future trends in AI?
+
+How can AI impact jobs and employment?
+
+What is the importance of transparency and fairness in AI?
+
+How do supervised and unsupervised learning differ?
+

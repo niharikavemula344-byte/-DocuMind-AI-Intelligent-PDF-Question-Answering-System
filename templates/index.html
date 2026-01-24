@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DocuMind AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; font-family:'Inter',sans-serif; }
+body {
+  min-height:100vh;
+  display:flex; justify-content:center; align-items:center;
+  background: linear-gradient(135deg,#e0eafc,#cfdef3);
+  overflow:hidden;
+}
+.container {
+  background: rgba(255,255,255,0.2);
+  backdrop-filter: blur(20px);
+  border-radius:25px;
+  padding:40px 35px;
+  width:90%; max-width:720px;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+  border:1px solid rgba(255,255,255,0.3);
+  display:flex;
+  flex-direction:column;
+  gap:25px;
+}
+.header { text-align:center; }
+.header h1 {
+  font-size:2.5rem; font-weight:700;
+  color:#1e1e2f;
+  letter-spacing:1px;
+}
+.pdf-upload {
+  display:flex; justify-content:space-between; align-items:center; gap:15px; flex-wrap:wrap;
+}
+.pdf-upload input[type="file"] {
+  flex:1; padding:12px 15px; border-radius:15px; border:1px solid #ccc;
+  outline:none; background:#fff; color:#333; font-weight:500; font-size:1rem; cursor:pointer;
+}
+.pdf-upload input[type="file"]::file-selector-button {
+  background:#4f46e5; border:none; padding:8px 18px; margin-right:10px; border-radius:12px;
+  color:#fff; font-weight:600; cursor:pointer; transition:0.3s;
+}
+.pdf-upload input[type="file"]::file-selector-button:hover {
+  background:#4338ca;
+}
+.pdf-upload button {
+  background:#4f46e5; padding:12px 20px; border-radius:15px; color:#fff;
+  font-weight:600; cursor:pointer; transition:0.3s; border:none;
+}
+.pdf-upload button:hover { background:#4338ca; }
+
+#pdfPreview {
+  padding:12px 15px; border-radius:15px;
+  background:#f0f4ff; color:#1e1e2f;
+  font-weight:500; display:none;
+  box-shadow:0 6px 15px rgba(0,0,0,0.1);
+}
+.chat-container { display:flex; flex-direction:column; gap:15px; }
+.chat-container textarea {
+  width:100%; height:140px; padding:15px;
+  border-radius:15px; border:1px solid #ccc; outline:none;
+  font-size:1rem; background:#fff; color:#333; resize:none;
+}
+.chat-actions { display:flex; justify-content:space-between; gap:15px; flex-wrap:wrap; }
+.chat-actions button {
+  flex:1; padding:12px 0; border:none; border-radius:15px;
+  font-weight:600; font-size:1rem; cursor:pointer; transition:0.3s;
+  color:#fff; box-shadow:0 4px 15px rgba(0,0,0,0.15);
+}
+.send-btn { background:#4f46e5; }
+.send-btn:hover { background:#4338ca; transform:scale(1.03); }
+.clear-btn { background:#6b7280; }
+.clear-btn:hover { background:#4b5563; transform:scale(1.03); }
+.chat-messages { display:flex; flex-direction:column; gap:10px; max-height:200px; overflow-y:auto; }
+.chat-bubble {
+  padding:10px 18px; border-radius:15px;
+  max-width:75%; font-weight:500; background:#4f46e5; color:#fff;
+  align-self:flex-start;
+  box-shadow:0 4px 10px rgba(0,0,0,0.1);
+}
+footer { text-align:center; margin-top:20px; font-size:0.9rem; color:#1e1e2f; }
+@media(max-width:600px){
+  .pdf-upload{ flex-direction:column; }
+  .chat-actions{ flex-direction:column; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <h1>DocuMind AI</h1>
+  </div>
+
+  <!-- PDF Upload -->
+  <div class="pdf-upload">
+    <input type="file" id="pdfFile" accept="application/pdf">
+    <button id="uploadBtn">Upload PDF</button>
+  </div>
+
+  <!-- PDF Preview Card -->
+  <div id="pdfPreview"></div>
+
+  <!-- Chat Section -->
+  <div class="chat-container">
+    <textarea id="chatInput" placeholder="Ask your PDF..."></textarea>
+    <div class="chat-actions">
+      <button class="send-btn">Send</button>
+      <button class="clear-btn">🗑️ Clear</button>
+    </div>
+  </div>
+
+  <!-- Chat Messages -->
+  <div class="chat-messages" id="chatMessages"></div>
+
+  <!-- Footer -->
+  <footer>
+    © 2026 NiharikaVemula – All rights reserved. | Rights: NiharikaVemula
+  </footer>
+</div>
+
+<script>
+let pdfUploaded = false;
+
+// --- PDF Preview ---
+const pdfInput = document.getElementById('pdfFile');
+const pdfPreview = document.getElementById('pdfPreview');
+
+pdfInput.addEventListener('change', (e)=>{
+  if(e.target.files.length){
+    pdfPreview.style.display='block';
+    pdfPreview.textContent = `📄 Selected PDF: ${e.target.files[0].name}`;
+  } else {
+    pdfPreview.style.display='none';
+    pdfPreview.textContent = '';
+  }
+});
+
+// --- PDF Upload to Server ---
+document.getElementById('uploadBtn').addEventListener('click', async ()=>{
+  if(!pdfInput.files.length){
+    alert("First select a PDF");
+    return;
+  }
+
+  const uploadBtn = document.getElementById('uploadBtn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = "Processing PDF... ⏳";
+  pdfPreview.style.display = 'block';
+  pdfPreview.textContent = "📄 Uploading & processing PDF. Please wait...";
+
+  const formData = new FormData();
+  formData.append("pdf", pdfInput.files[0]);
+
+  try {
+    const res = await fetch("/upload", { method: "POST", body: formData });
+    const data = await res.json();
+
+    if(res.ok){
+      pdfUploaded = true;
+      pdfPreview.textContent = "✅ PDF processed successfully. Ask your questions now!";
+    } else {
+      pdfPreview.textContent = "❌ PDF upload failed";
+      alert(data.error || "Upload failed");
+    }
+  } catch(err){
+    pdfPreview.textContent = "❌ Error during upload";
+    alert("Error uploading PDF: " + err.message);
+  }
+
+  uploadBtn.disabled = false;
+  uploadBtn.textContent = "Upload PDF";
+});
+
+// --- Send Chat Message ---
+const chatInput = document.getElementById('chatInput');
+const chatMessages = document.getElementById('chatMessages');
+
+document.querySelector('.send-btn').addEventListener('click', async ()=>{
+  const text = chatInput.value.trim();
+  if(!text) return;
+
+  if(!pdfUploaded){
+    alert("Please upload a PDF first");
+    return;
+  }
+
+  // Show user's message
+  const userBubble = document.createElement('div');
+  userBubble.classList.add('chat-bubble');
+  userBubble.textContent = text;
+  chatMessages.appendChild(userBubble);
+  chatInput.value='';
+  chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  // Send message to backend
+  try {
+    const res = await fetch("/chat", {
+      method:"POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: text })
+    });
+    const data = await res.json();
+
+    // Show AI response
+    const aiBubble = document.createElement('div');
+    aiBubble.classList.add('chat-bubble');
+    aiBubble.style.background = "#6b7280"; 
+    aiBubble.style.alignSelf = "flex-end";
+    aiBubble.textContent = data.response || "No response from AI";
+    chatMessages.appendChild(aiBubble);
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+
+  } catch(err){
+    alert("Error sending message: " + err.message);
+  }
+});
+
+// --- Clear Chat Input ---
+document.querySelector('.clear-btn').addEventListener('click', ()=>{
+  chatInput.value='';
+});
+</script>
+
+</body>
+</html>
