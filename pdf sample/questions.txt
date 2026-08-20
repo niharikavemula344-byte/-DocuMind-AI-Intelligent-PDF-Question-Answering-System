@@ -1,0 +1,10 @@
+Suggested sample questions
+
+- What is artificial intelligence and what are its core areas?
+- Explain the three main types of machine learning.
+- How is deep learning different from traditional machine learning?
+- List real-world applications of AI across different industries.
+- What are the key ethical concerns associated with AI?
+- How are supervised and unsupervised learning different?
+- How can AI affect jobs and employment?
+- Why are transparency and fairness important in AI systems?
