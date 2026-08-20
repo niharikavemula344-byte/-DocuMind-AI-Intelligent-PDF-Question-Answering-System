@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, send_from_directory
+from flask import Flask, request, render_template, jsonify
 import os
 import uuid
 import traceback
@@ -16,8 +16,9 @@ app = Flask(__name__)
 UPLOAD_FOLDER = 'uploads'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-# === Allow very large PDFs (2GB) ===
-app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB
+# Keep local processing bounded and reject unexpectedly large uploads.
+app.config['MAX_CONTENT_LENGTH'] = 25 * 1024 * 1024
+MODEL_PATH = os.getenv('GPT4ALL_MODEL_PATH', './models/ggml-gpt4all-j-v1.3-groovy.bin')
 
 # === Global variables ===
 db = None
@@ -30,18 +31,17 @@ def index():
     return render_template('index.html')
 
 
-@app.route('/uploads/<filename>')
-def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
-
-
 @app.route('/upload', methods=['POST'])
 def upload_pdf():
     global db, qa_chain, chat_memory
 
     file = request.files.get('pdf')
-    if not file:
-        return jsonify({"error": "No file uploaded"}), 400
+    if not file or not file.filename:
+        return jsonify({"error": "Choose a PDF to upload."}), 400
+    if not file.filename.lower().endswith('.pdf'):
+        return jsonify({"error": "Only PDF files are supported."}), 400
+    if not os.path.isfile(MODEL_PATH):
+        return jsonify({"error": "GPT4All model not found. Configure GPT4ALL_MODEL_PATH first."}), 503
 
     # --- Save PDF safely ---
     try:
@@ -71,7 +71,7 @@ def upload_pdf():
 
         # --- Load GPT4All model properly ---
         llm = GPT4All(
-            model="./models/ggml-gpt4all-j-v1.3-groovy.bin",
+            model=MODEL_PATH,
             model_type="ggml"
         )
 
@@ -89,11 +89,14 @@ def upload_pdf():
             memory=chat_memory
         )
 
-        return jsonify({"message": "✅ PDF processed successfully! Chat is ready.", "filename": filename})
+        return jsonify({"message": "PDF processed successfully. Chat is ready."})
 
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"error": f"Failed to process PDF: {str(e)}"}), 500
+        return jsonify({"error": "The PDF could not be processed. Check the server log for details."}), 500
+    finally:
+        if os.path.exists(file_path):
+            os.remove(file_path)
 
 
 @app.route('/chat', methods=['POST'])
@@ -102,7 +105,8 @@ def chat():
     if not qa_chain:
         return jsonify({'response': '⚠️ Please upload a PDF first.'}), 400
 
-    query = request.json.get('message', '').strip()
+    payload = request.get_json(silent=True) or {}
+    query = payload.get('message', '').strip()
     if not query:
         return jsonify({'response': '⚠️ Empty question'}), 400
 
@@ -111,11 +115,11 @@ def chat():
         return jsonify({'response': result})
     except Exception as e:
         traceback.print_exc()
-        return jsonify({'response': f'[Error] {str(e)}'}), 500
+        return jsonify({'response': 'The question could not be processed. Check the server log.'}), 500
 
 
 if __name__ == '__main__':
     print("🚀 Starting DocuMind AI Flask server...")
     print("📂 Upload folder:", UPLOAD_FOLDER)
     print("🌐 Open in browser: http://127.0.0.1:5000/")
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG') == '1')
